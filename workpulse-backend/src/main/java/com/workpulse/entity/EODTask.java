@@ -1,9 +1,15 @@
 package com.workpulse.entity;
 
-import jakarta.persistence.Embeddable;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 
-@Embeddable
+@Entity
+@Table(name = "eod_tasks")
 public class EODTask {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     private String description;
 
@@ -11,13 +17,26 @@ public class EODTask {
 
     private String remarks;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "eod_report_id", nullable = false)
+    @JsonIgnore
+    private EODReport eodReport;
+
     public EODTask() {
     }
 
-    public EODTask(String description, String status, String remarks) {
+    public EODTask(
+            String description,
+            String status,
+            String remarks
+    ) {
         this.description = description;
         this.status = status;
         this.remarks = remarks;
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public String getDescription() {
@@ -42,5 +61,13 @@ public class EODTask {
 
     public void setRemarks(String remarks) {
         this.remarks = remarks;
+    }
+
+    public EODReport getEodReport() {
+        return eodReport;
+    }
+
+    public void setEodReport(EODReport eodReport) {
+        this.eodReport = eodReport;
     }
 }

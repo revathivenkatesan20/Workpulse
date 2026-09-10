@@ -131,20 +131,22 @@ function Sidebar({ isOpen, setIsOpen }) {
     ===================================================== */
 
     const handleLogout = () => {
-        localStorage.removeItem(
-            "workpulse_current_employee"
-        );
+        // Clear authentication/session data
+        localStorage.removeItem("workpulse_token");
+        localStorage.removeItem("workpulse_current_employee");
+        localStorage.removeItem("workpulse_current_employee_code");
+        localStorage.removeItem("workpulse_remember_me");
 
-        localStorage.removeItem(
-            "workpulse_remember_me"
-        );
-
+        // Close sidebar
         setIsOpen(false);
 
+        // Go to login and replace browser history
         navigate("/login", {
             replace: true,
         });
     };
+
+
 
     return (
         <>

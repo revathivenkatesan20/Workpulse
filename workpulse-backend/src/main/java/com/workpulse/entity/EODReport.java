@@ -44,10 +44,11 @@ public class EODReport {
     @Column(name = "total_working_hours")
     private String totalWorkingHours;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-        name = "eod_tasks",
-        joinColumns = @JoinColumn(name = "eod_report_id")
+    @OneToMany(
+        mappedBy = "eodReport",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.EAGER
     )
     private List<EODTask> tasks = new ArrayList<>();
 
@@ -124,7 +125,15 @@ public class EODReport {
     }
 
     public void setTasks(List<EODTask> tasks) {
-        this.tasks = tasks;
+
+        this.tasks.clear();
+
+        if (tasks != null) {
+            for (EODTask task : tasks) {
+                task.setEodReport(this);
+                this.tasks.add(task);
+            }
+        }
     }
 
     public LocalDateTime getSubmittedAt() {

@@ -5,6 +5,7 @@ import com.workpulse.entity.Employee;
 import com.workpulse.repository.EODRepository;
 import com.workpulse.repository.EmployeeRepository;
 import com.workpulse.service.NotificationService;
+import com.workpulse.entity.EODTask;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -337,6 +338,16 @@ public class EODController {
         eodReport.setSubmittedAt(
                 LocalDateTime.now()
         );
+
+        // =====================================================
+// LINK TASKS TO EOD REPORT
+// =====================================================
+
+if (eodReport.getTasks() != null) {
+    for (EODTask task : eodReport.getTasks()) {
+        task.setEodReport(eodReport);
+    }
+}
 
         // =====================================================
         // SAVE
