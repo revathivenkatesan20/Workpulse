@@ -1,5 +1,5 @@
-
-const API_BASE_URL = "http://localhost:8080/api";
+const API_BASE_URL =
+    `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 // Prevent multiple simultaneous session-expired events
 let sessionExpiryHandled = false;
@@ -79,8 +79,8 @@ const apiRequest = async (endpoint, options = {}) => {
                 typeof data === "string"
                     ? data
                     : data?.message ||
-                      data?.error ||
-                      "Something went wrong."
+                    data?.error ||
+                    "Something went wrong."
             );
         }
 
@@ -190,8 +190,8 @@ export const loginEmployee = async (
             typeof data === "string"
                 ? data
                 : data?.message ||
-                  data?.error ||
-                  "Invalid email or password.";
+                data?.error ||
+                "Invalid email or password.";
 
         const error = new Error(message);
 
