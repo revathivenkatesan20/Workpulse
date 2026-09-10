@@ -5,6 +5,7 @@ import { useNotifications } from "../context/NotificationContext";
 import {
     LayoutDashboard,
     ClipboardList,
+    ClipboardCheck,
     BarChart3,
     Bell,
     Users,
@@ -14,6 +15,10 @@ import {
     Activity,
     Sparkles,
 } from "lucide-react";
+
+/* =========================================================
+   MENU ITEMS
+========================================================= */
 
 const menuItems = [
     {
@@ -25,6 +30,12 @@ const menuItems = [
         name: "My EOD",
         icon: ClipboardList,
         path: "/eod",
+    },
+    {
+        name: "Admin EOD",
+        icon: ClipboardCheck,
+        path: "/admin-eod",
+        adminOnly: true,
     },
     {
         name: "Analytics",
@@ -40,6 +51,7 @@ const menuItems = [
         name: "Employees",
         icon: Users,
         path: "/employees",
+        adminOnly: true,
     },
     {
         name: "Settings",
@@ -48,30 +60,76 @@ const menuItems = [
     },
 ];
 
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
 function Sidebar({ isOpen, setIsOpen }) {
     const navigate = useNavigate();
 
-    const { notifications } = useNotifications();
+    const { getUnreadCount } =
+        useNotifications();
 
-    // Get logged-in employee
-    const currentEmployee = JSON.parse(
-        localStorage.getItem(
-            "workpulse_current_employee"
-        ) || "null"
-    );
+    /* =====================================================
+       GET LOGGED-IN EMPLOYEE
+    ===================================================== */
+
+    const currentEmployee = (() => {
+        try {
+            return JSON.parse(
+                localStorage.getItem(
+                    "workpulse_current_employee"
+                ) || "null"
+            );
+        } catch (error) {
+            return null;
+        }
+    })();
+
+    /* =====================================================
+       CURRENT EMPLOYEE CODE
+    ===================================================== */
 
     const currentEmployeeCode =
         currentEmployee?.employeeCode || "";
 
-    // Count unread notifications
-    const unreadCount = notifications.filter(
-        (notification) =>
-            notification.employeeCode ===
-            currentEmployeeCode &&
-            !notification.read
-    ).length;
+    /* =====================================================
+       ACCOUNT ROLE
+    ===================================================== */
 
-    // Logout
+    const accountRole = String(
+        currentEmployee?.accountRole || "EMPLOYEE"
+    ).toUpperCase();
+
+    const isAdmin =
+        accountRole === "ADMIN";
+
+    /* =====================================================
+       FILTER MENU BASED ON ROLE
+    ===================================================== */
+
+    const visibleMenuItems =
+        menuItems.filter((item) => {
+            if (item.adminOnly && !isAdmin) {
+                return false;
+            }
+
+            return true;
+        });
+
+    /* =====================================================
+       UNREAD NOTIFICATION COUNT
+    ===================================================== */
+
+    const unreadCount =
+        getUnreadCount(
+            currentEmployeeCode
+        );
+
+    /* =====================================================
+       LOGOUT
+    ===================================================== */
+
     const handleLogout = () => {
         localStorage.removeItem(
             "workpulse_current_employee"
@@ -90,16 +148,22 @@ function Sidebar({ isOpen, setIsOpen }) {
 
     return (
         <>
-            {/* =================================
+            {/* =============================================
                 MOBILE / TABLET OVERLAY
-            ================================== */}
+            ============================================== */}
 
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        initial={{
+                            opacity: 0,
+                        }}
+                        animate={{
+                            opacity: 1,
+                        }}
+                        exit={{
+                            opacity: 0,
+                        }}
                         transition={{
                             duration: 0.2,
                         }}
@@ -116,9 +180,9 @@ function Sidebar({ isOpen, setIsOpen }) {
                 )}
             </AnimatePresence>
 
-            {/* =================================
+            {/* =============================================
                 SIDEBAR
-            ================================== */}
+            ============================================== */}
 
             <motion.aside
                 initial={false}
@@ -143,9 +207,10 @@ function Sidebar({ isOpen, setIsOpen }) {
                     }
                 `}
             >
-                {/* =================================
+
+                {/* =========================================
                     BRAND
-                ================================== */}
+                ========================================== */}
 
                 <div
                     className="
@@ -159,19 +224,22 @@ function Sidebar({ isOpen, setIsOpen }) {
                         overflow-hidden
                     "
                 >
+
                     {/* Brand ambient glow */}
 
-                    <div className="
-                        pointer-events-none
-                        absolute
-                        -left-10
-                        -top-12
-                        h-28
-                        w-28
-                        rounded-full
-                        bg-[#9B72CF]/20
-                        blur-2xl
-                    " />
+                    <div
+                        className="
+                            pointer-events-none
+                            absolute
+                            -left-10
+                            -top-12
+                            h-28
+                            w-28
+                            rounded-full
+                            bg-[#9B72CF]/20
+                            blur-2xl
+                        "
+                    />
 
                     <div className="relative flex items-center gap-3">
 
@@ -198,6 +266,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                         {/* Brand text */}
 
                         <div className="min-w-0">
+
                             <h1
                                 className="
                                     whitespace-nowrap
@@ -222,6 +291,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                             >
                                 EOD & Analytics
                             </p>
+
                         </div>
                     </div>
 
@@ -247,11 +317,12 @@ function Sidebar({ isOpen, setIsOpen }) {
                     >
                         <X size={21} />
                     </button>
+
                 </div>
 
-                {/* =================================
+                {/* =========================================
                     NAVIGATION
-                ================================== */}
+                ========================================== */}
 
                 <nav
                     className="
@@ -264,6 +335,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                         sm:py-6
                     "
                 >
+
                     <p
                         className="
                             mb-3
@@ -279,23 +351,19 @@ function Sidebar({ isOpen, setIsOpen }) {
                     </p>
 
                     <div className="space-y-1.5">
-                        {menuItems.map(
+
+                        {visibleMenuItems.map(
                             (item, index) => {
+
                                 const Icon =
                                     item.icon;
 
                                 return (
                                     <NavLink
-                                        key={
-                                            item.name
-                                        }
-                                        to={
-                                            item.path
-                                        }
+                                        key={item.name}
+                                        to={item.path}
                                         onClick={() =>
-                                            setIsOpen(
-                                                false
-                                            )
+                                            setIsOpen(false)
                                         }
                                         className="block"
                                     >
@@ -340,6 +408,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                                                     }
                                                 `}
                                             >
+
                                                 {/* Active indicator */}
 
                                                 {isActive && (
@@ -375,12 +444,8 @@ function Sidebar({ isOpen, setIsOpen }) {
                                                     `}
                                                 >
                                                     <Icon
-                                                        size={
-                                                            19
-                                                        }
-                                                        strokeWidth={
-                                                            1.9
-                                                        }
+                                                        size={19}
+                                                        strokeWidth={1.9}
                                                     />
                                                 </div>
 
@@ -394,9 +459,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                                                         font-semibold
                                                     "
                                                 >
-                                                    {
-                                                        item.name
-                                                    }
+                                                    {item.name}
                                                 </span>
 
                                                 {/* Notification Badge */}
@@ -405,7 +468,20 @@ function Sidebar({ isOpen, setIsOpen }) {
                                                     "Notifications" &&
                                                     unreadCount >
                                                     0 && (
-                                                        <span
+                                                        <motion.span
+                                                            initial={{
+                                                                scale: 0,
+                                                                opacity: 0,
+                                                            }}
+                                                            animate={{
+                                                                scale: 1,
+                                                                opacity: 1,
+                                                            }}
+                                                            transition={{
+                                                                type: "spring",
+                                                                stiffness: 500,
+                                                                damping: 25,
+                                                            }}
                                                             className={`
                                                                 ml-auto
                                                                 flex
@@ -429,20 +505,22 @@ function Sidebar({ isOpen, setIsOpen }) {
                                                                 99
                                                                 ? "99+"
                                                                 : unreadCount}
-                                                        </span>
+                                                        </motion.span>
                                                     )}
+
                                             </motion.div>
                                         )}
                                     </NavLink>
                                 );
                             }
                         )}
+
                     </div>
                 </nav>
 
-                {/* =================================
+                {/* =========================================
                     EMPLOYEE PROFILE
-                ================================== */}
+                ========================================== */}
 
                 {currentEmployee && (
                     <div
@@ -460,6 +538,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                             sm:mx-4
                         "
                     >
+
                         <div className="flex items-center gap-3">
 
                             {/* Avatar */}
@@ -504,6 +583,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                             {/* Employee details */}
 
                             <div className="min-w-0 flex-1">
+
                                 <p
                                     className="
                                         truncate
@@ -512,9 +592,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                                         text-[#2F184B]
                                     "
                                 >
-                                    {
-                                        currentEmployee.name
-                                    }
+                                    {currentEmployee.name}
                                 </p>
 
                                 <p
@@ -525,10 +603,9 @@ function Sidebar({ isOpen, setIsOpen }) {
                                         text-[#9B72CF]
                                     "
                                 >
-                                    {
-                                        currentEmployee.employeeCode
-                                    }
+                                    {currentEmployee.employeeCode}
                                 </p>
+
                             </div>
 
                             <Sparkles
@@ -538,13 +615,14 @@ function Sidebar({ isOpen, setIsOpen }) {
                                     text-[#C8B1E4]
                                 "
                             />
+
                         </div>
                     </div>
                 )}
 
-                {/* =================================
+                {/* =========================================
                     LOGOUT
-                ================================== */}
+                ========================================== */}
 
                 <div
                     className="
@@ -554,6 +632,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                         sm:p-4
                     "
                 >
+
                     <button
                         type="button"
                         onClick={handleLogout}
@@ -573,6 +652,7 @@ function Sidebar({ isOpen, setIsOpen }) {
                             sm:px-4
                         "
                     >
+
                         <div
                             className="
                                 flex h-9 w-9
@@ -598,8 +678,10 @@ function Sidebar({ isOpen, setIsOpen }) {
                         <span className="text-sm font-semibold">
                             Logout
                         </span>
+
                     </button>
                 </div>
+
             </motion.aside>
         </>
     );

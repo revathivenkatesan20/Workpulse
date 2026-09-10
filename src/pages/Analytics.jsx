@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+
 import { useEOD } from "../context/EODContext";
 
 import {
@@ -13,6 +14,8 @@ import {
     TrendingUp,
     Users,
     Sparkles,
+    AlertCircle,
+    RefreshCw,
 } from "lucide-react";
 
 import {
@@ -83,7 +86,9 @@ const getDaysBetween = (startDate, endDate) => {
 --------------------------------- */
 
 const convertHoursToMinutes = (hoursString) => {
-    if (!hoursString) return 0;
+    if (!hoursString) {
+        return 0;
+    }
 
     if (typeof hoursString === "number") {
         return Math.round(hoursString * 60);
@@ -91,8 +96,13 @@ const convertHoursToMinutes = (hoursString) => {
 
     const value = String(hoursString);
 
-    const hoursMatch = value.match(/(\d+(?:\.\d+)?)\s*h/i);
-    const minutesMatch = value.match(/(\d+)\s*m/i);
+    const hoursMatch = value.match(
+        /(\d+(?:\.\d+)?)\s*h/i
+    );
+
+    const minutesMatch = value.match(
+        /(\d+)\s*m/i
+    );
 
     const hours = hoursMatch
         ? Number(hoursMatch[1])
@@ -107,9 +117,9 @@ const convertHoursToMinutes = (hoursString) => {
 
 const getReportMinutes = (report) => {
     return convertHoursToMinutes(
-        report.totalWorkingHours ||
-        report.workingHours ||
-        ""
+        report?.totalWorkingHours ||
+            report?.workingHours ||
+            ""
     );
 };
 
@@ -184,10 +194,43 @@ const CustomTooltip = ({
 --------------------------------- */
 
 function Analytics() {
-    const { eodReports } = useEOD();
+    const {
+        eodReports = [],
+        loading,
+        error,
+        refreshEODReports,
+        refreshing = false,
+    } = useEOD();
 
     const [selectedPeriod, setSelectedPeriod] =
         useState("week");
+
+    /* --------------------------------
+       INITIAL LOADING
+    --------------------------------- */
+
+    if (loading) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#F4EFFA] px-4">
+                <div className="flex flex-col items-center text-center">
+                    <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#532B88] text-white shadow-xl shadow-[#532B88]/20">
+                        <RefreshCw
+                            size={28}
+                            className="animate-spin"
+                        />
+                    </div>
+
+                    <h2 className="text-xl font-bold text-[#2F184B]">
+                        Loading Analytics
+                    </h2>
+
+                    <p className="mt-2 text-sm text-[#806F8F]">
+                        Fetching the latest EOD reports...
+                    </p>
+                </div>
+            </main>
+        );
+    }
 
     const today = new Date();
 
@@ -243,16 +286,21 @@ function Analytics() {
 
     const filteredReports = eodReports.filter(
         (report) =>
-            report.date >= start &&
-            report.date <= end
+            report?.date >= start &&
+            report?.date <= end
     );
 
     /* --------------------------------
        PERIOD DATES
     --------------------------------- */
 
-    const startDate = new Date(`${start}T00:00:00`);
-    const endDate = new Date(`${end}T00:00:00`);
+    const startDate = new Date(
+        `${start}T00:00:00`
+    );
+
+    const endDate = new Date(
+        `${end}T00:00:00`
+    );
 
     const periodDates = getDaysBetween(
         startDate,
@@ -269,12 +317,13 @@ function Analytics() {
 
             const reports = eodReports.filter(
                 (report) =>
-                    report.date === dateString
+                    report?.date === dateString
             );
 
             const totalMinutes = reports.reduce(
                 (total, report) =>
-                    total + getReportMinutes(report),
+                    total +
+                    getReportMinutes(report),
                 0
             );
 
@@ -310,7 +359,9 @@ function Analytics() {
             return {
                 day: label,
                 hours: Number(
-                    (totalMinutes / 60).toFixed(2)
+                    (
+                        totalMinutes / 60
+                    ).toFixed(2)
                 ),
             };
         }
@@ -329,7 +380,7 @@ function Analytics() {
 
     filteredReports.forEach((report) => {
         const tasks = Array.isArray(
-            report.tasks
+            report?.tasks
         )
             ? report.tasks
             : [];
@@ -337,7 +388,7 @@ function Analytics() {
         tasks.forEach((task) => {
             if (
                 taskStatusCounts[
-                    task.status
+                    task?.status
                 ] !== undefined
             ) {
                 taskStatusCounts[
@@ -366,8 +417,8 @@ function Analytics() {
 
     filteredReports.forEach((report) => {
         const employeeName =
-            report.employeeName ||
-            report.employeeCode ||
+            report?.employeeName ||
+            report?.employeeCode ||
             "Unknown Employee";
 
         if (
@@ -391,11 +442,14 @@ function Analytics() {
         .map(([name, minutes]) => ({
             name,
             hours: Number(
-                (minutes / 60).toFixed(2)
+                (
+                    minutes / 60
+                ).toFixed(2)
             ),
         }))
         .sort(
-            (a, b) => b.hours - a.hours
+            (a, b) =>
+                b.hours - a.hours
         );
 
     /* --------------------------------
@@ -434,15 +488,15 @@ function Analytics() {
         selectedPeriod === "today"
             ? "Today's"
             : selectedPeriod === "month"
-                ? "This month's"
-                : "This week's";
+              ? "This month's"
+              : "This week's";
 
     const selectedPeriodLabel =
         selectedPeriod === "today"
             ? "Today"
             : selectedPeriod === "month"
-                ? "This Month"
-                : "This Week";
+              ? "This Month"
+              : "This Week";
 
     const completionPercentage =
         totalTasks > 0
@@ -496,18 +550,31 @@ function Analytics() {
         selectedPeriod === "today"
             ? "Today's Working Overview"
             : selectedPeriod === "month"
-                ? "Monthly Working Overview"
-                : "Weekly Working Overview";
+              ? "Monthly Working Overview"
+              : "Weekly Working Overview";
 
     const workingChartDescription =
         selectedPeriod === "today"
             ? "Working hours recorded today across all employees."
             : selectedPeriod === "month"
-                ? "Daily working hours recorded throughout this month."
-                : "Working hours recorded across the current week.";
+              ? "Daily working hours recorded throughout this month."
+              : "Working hours recorded across the current week.";
+
+    /* --------------------------------
+       RETRY
+    --------------------------------- */
+
+    const handleRetry = async () => {
+        try {
+            await refreshEODReports(false);
+        } catch (error) {
+            return;
+        }
+    };
 
     return (
         <main className="relative min-h-screen overflow-hidden bg-[#F4EFFA] px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+
             {/* --------------------------------
                 AMBIENT BACKGROUND
             --------------------------------- */}
@@ -563,6 +630,7 @@ function Analytics() {
             </div>
 
             <div className="relative mx-auto max-w-7xl">
+
                 {/* --------------------------------
                     HEADER
                 --------------------------------- */}
@@ -582,6 +650,7 @@ function Analytics() {
                     className="mb-7"
                 >
                     <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+
                         <div>
                             <div className="mb-3 flex items-center gap-2">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#532B88] text-white shadow-lg shadow-[#532B88]/20">
@@ -596,9 +665,21 @@ function Analytics() {
                                 </span>
                             </div>
 
-                            <h1 className="text-3xl font-bold tracking-tight text-[#2F184B] sm:text-4xl">
-                                Analytics
-                            </h1>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <h1 className="text-3xl font-bold tracking-tight text-[#2F184B] sm:text-4xl">
+                                    Analytics
+                                </h1>
+
+                                {refreshing && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-semibold text-[#532B88] shadow-sm">
+                                        <RefreshCw
+                                            size={13}
+                                            className="animate-spin"
+                                        />
+                                        Updating...
+                                    </span>
+                                )}
+                            </div>
 
                             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#806F8F] sm:text-base">
                                 Analyze employee
@@ -655,6 +736,70 @@ function Analytics() {
                         </div>
                     </div>
                 </motion.div>
+
+                {/* --------------------------------
+                    ERROR BANNER
+                --------------------------------- */}
+
+                {error && (
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                            y: -10,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        className="mb-6 rounded-2xl border border-red-200 bg-red-50/90 p-4 shadow-lg shadow-red-900/5 backdrop-blur-xl"
+                    >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                                    <AlertCircle
+                                        size={20}
+                                    />
+                                </div>
+
+                                <div>
+                                    <p className="text-sm font-bold text-red-800">
+                                        Unable to refresh EOD data
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-red-600">
+                                         Unable to load the latest EOD analytics data.
+                                    </p>
+
+                                    {eodReports.length >
+                                        0 && (
+                                        <p className="mt-1 text-xs text-red-500">
+                                            Showing the
+                                            last available
+                                            analytics data.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleRetry}
+                                disabled={loading}
+                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#532B88] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#532B88]/20 transition-all hover:bg-[#2F184B] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <RefreshCw
+                                    size={15}
+                                    className={
+                                        refreshing
+                                            ? "animate-spin"
+                                            : ""
+                                    }
+                                />
+                                Retry
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* --------------------------------
                     PERIOD OVERVIEW
@@ -798,6 +943,7 @@ function Analytics() {
                 --------------------------------- */}
 
                 <div className="mt-6 grid gap-6 xl:grid-cols-2">
+
                     {/* WORKING HOURS */}
 
                     <motion.section
@@ -819,9 +965,7 @@ function Analytics() {
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EFFA] text-[#532B88]">
                                         <Clock
-                                            size={
-                                                18
-                                            }
+                                            size={18}
                                         />
                                     </div>
 
@@ -944,9 +1088,7 @@ function Analytics() {
                                 <div className="flex h-full flex-col items-center justify-center text-center">
                                     <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F4EFFA] text-[#9B72CF]">
                                         <Clock
-                                            size={
-                                                24
-                                            }
+                                            size={24}
                                         />
                                     </div>
 
@@ -986,9 +1128,7 @@ function Analytics() {
                             <div className="flex items-center gap-2">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EFFA] text-[#532B88]">
                                     <CheckCircle2
-                                        size={
-                                            18
-                                        }
+                                        size={18}
                                     />
                                 </div>
 
@@ -1076,9 +1216,7 @@ function Analytics() {
                                 <div className="flex h-full flex-col items-center justify-center text-center">
                                     <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F4EFFA] text-[#9B72CF]">
                                         <ClipboardCheck
-                                            size={
-                                                24
-                                            }
+                                            size={24}
                                         />
                                     </div>
 
@@ -1117,9 +1255,7 @@ function Analytics() {
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F4EFFA] text-[#532B88]">
                                         <Users
-                                            size={
-                                                18
-                                            }
+                                            size={18}
                                         />
                                     </div>
 
@@ -1140,9 +1276,7 @@ function Analytics() {
                                 0 && (
                                 <div className="flex items-center gap-2 self-start rounded-xl bg-[#F4EFFA] px-3 py-2">
                                     <TrendingUp
-                                        size={
-                                            15
-                                        }
+                                        size={15}
                                         className="text-[#532B88]"
                                     />
 
@@ -1250,9 +1384,7 @@ function Analytics() {
                             <div className="flex h-[250px] flex-col items-center justify-center text-center">
                                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F4EFFA] text-[#9B72CF]">
                                     <Users
-                                        size={
-                                            24
-                                        }
+                                        size={24}
                                     />
                                 </div>
 

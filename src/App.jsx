@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   BrowserRouter,
   Routes,
@@ -6,11 +7,17 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
+
 import { Menu, Bell } from "lucide-react";
 
+import ProtectedRoute from "./components/ProtectedRoute";
+import AuthExpiryHandler from "./components/AuthExpiryHandler";
+
 import Sidebar from "./components/Sidebar";
+
 import Dashboard from "./pages/Dashboard";
 import MyEOD from "./pages/MyEOD";
+import AdminEOD from "./pages/AdminEOD";
 import Analytics from "./pages/Analytics";
 import Notifications from "./pages/Notifications";
 import Employees from "./pages/Employees";
@@ -19,25 +26,67 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 
-
 import { EODProvider } from "./context/EODContext";
+
 import {
   NotificationProvider,
   useNotifications,
 } from "./context/NotificationContext";
+
 import { EmployeeProvider } from "./context/EmployeeContext";
 
 /* =========================================================
-   AUTHENTICATION GUARD
+   GET CURRENT LOGGED-IN EMPLOYEE
 ========================================================= */
 
-function ProtectedRoute({ children }) {
-  const currentEmployee = localStorage.getItem(
-    "workpulse_current_employee"
-  );
+function getCurrentEmployee() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(
+        "workpulse_current_employee"
+      ) || "null"
+    );
+  } catch {
+    return null;
+  }
+}
+
+/* =========================================================
+   ADMIN GUARD
+   Only ADMIN can access admin pages.
+========================================================= */
+
+function AdminRoute({ children }) {
+  const currentEmployee = getCurrentEmployee();
+
+  /* -------------------------------------------------------
+     NOT LOGGED IN
+  ------------------------------------------------------- */
 
   if (!currentEmployee) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+  }
+
+  /* -------------------------------------------------------
+     LOGGED IN BUT NOT ADMIN
+  ------------------------------------------------------- */
+
+  if (
+    String(
+      currentEmployee.accountRole || ""
+    ).toUpperCase() !== "ADMIN"
+  ) {
+    return (
+      <Navigate
+        to="/"
+        replace
+      />
+    );
   }
 
   return children;
@@ -47,16 +96,22 @@ function ProtectedRoute({ children }) {
    MOBILE HEADER
 ========================================================= */
 
-function MobileHeader({ setIsSidebarOpen }) {
+function MobileHeader({
+  setIsSidebarOpen,
+}) {
   const navigate = useNavigate();
-  const { getUnreadCount } = useNotifications();
 
-  const currentEmployee = JSON.parse(
-    localStorage.getItem("workpulse_current_employee") || "null"
-  );
+  const {
+    getUnreadCount,
+  } = useNotifications();
+
+  const currentEmployee =
+    getCurrentEmployee();
 
   const unreadCount = currentEmployee
-    ? getUnreadCount(currentEmployee.employeeCode)
+    ? getUnreadCount(
+        currentEmployee.employeeCode
+      )
     : 0;
 
   return (
@@ -69,10 +124,15 @@ function MobileHeader({ setIsSidebarOpen }) {
         lg:hidden
       "
     >
-      {/* Menu Button */}
+      {/* =================================================
+          MENU BUTTON
+      ================================================= */}
+
       <button
         type="button"
-        onClick={() => setIsSidebarOpen(true)}
+        onClick={() =>
+          setIsSidebarOpen(true)
+        }
         className="
           rounded-lg p-2
           text-slate-600
@@ -84,7 +144,10 @@ function MobileHeader({ setIsSidebarOpen }) {
         <Menu size={24} />
       </button>
 
-      {/* Brand */}
+      {/* =================================================
+          BRAND
+      ================================================= */}
+
       <div className="flex items-center gap-2">
         <img
           src="/src/assets/workpulse-logo.png"
@@ -97,10 +160,15 @@ function MobileHeader({ setIsSidebarOpen }) {
         </h1>
       </div>
 
-      {/* Notification */}
+      {/* =================================================
+          NOTIFICATION
+      ================================================= */}
+
       <button
         type="button"
-        onClick={() => navigate("/notifications")}
+        onClick={() =>
+          navigate("/notifications")
+        }
         className="
           relative rounded-lg p-2
           text-slate-600
@@ -125,7 +193,9 @@ function MobileHeader({ setIsSidebarOpen }) {
               text-white
             "
           >
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {unreadCount > 9
+              ? "9+"
+              : unreadCount}
           </span>
         )}
       </button>
@@ -135,6 +205,7 @@ function MobileHeader({ setIsSidebarOpen }) {
 
 /* =========================================================
    MAIN APPLICATION
+   This component contains all protected pages.
 ========================================================= */
 
 function MainApplication({
@@ -144,57 +215,122 @@ function MainApplication({
   return (
     <div className="min-h-screen bg-slate-100">
 
-      {/* Sidebar */}
+      {/* =====================================================
+          SIDEBAR
+      ===================================================== */}
+
       <Sidebar
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
       />
 
-      {/* Main Application Area */}
+      {/* =====================================================
+          MAIN AREA
+      ===================================================== */}
+
       <div className="min-h-screen lg:ml-64">
 
-        {/* Mobile / Tablet Header */}
+        {/* ===================================================
+            MOBILE / TABLET HEADER
+        =================================================== */}
+
         <MobileHeader
-          setIsSidebarOpen={setIsSidebarOpen}
+          setIsSidebarOpen={
+            setIsSidebarOpen
+          }
         />
 
-        {/* Application Pages */}
+        {/* ===================================================
+            PROTECTED APPLICATION ROUTES
+        =================================================== */}
+
         <Routes>
 
-          {/* Dashboard */}
+          {/* =================================================
+              DASHBOARD
+          ================================================= */}
+
           <Route
             path="/"
             element={<Dashboard />}
           />
 
-          {/* My EOD */}
+          {/* =================================================
+              MY EOD
+          ================================================= */}
+
           <Route
             path="/eod"
             element={<MyEOD />}
           />
 
-          {/* Analytics */}
+          {/* =================================================
+              ADMIN EOD
+              ADMIN ONLY
+          ================================================= */}
+
+          <Route
+            path="/admin-eod"
+            element={
+              <AdminRoute>
+                <AdminEOD />
+              </AdminRoute>
+            }
+          />
+
+          {/* =================================================
+              ANALYTICS
+          ================================================= */}
+
           <Route
             path="/analytics"
             element={<Analytics />}
           />
 
-          {/* Notifications */}
+          {/* =================================================
+              NOTIFICATIONS
+          ================================================= */}
+
           <Route
             path="/notifications"
             element={<Notifications />}
           />
 
-          {/* Employees */}
+          {/* =================================================
+              EMPLOYEES
+              ADMIN ONLY
+          ================================================= */}
+
           <Route
             path="/employees"
-            element={<Employees />}
+            element={
+              <AdminRoute>
+                <Employees />
+              </AdminRoute>
+            }
           />
 
-          {/* Settings */}
+          {/* =================================================
+              SETTINGS
+          ================================================= */}
+
           <Route
             path="/settings"
             element={<Settings />}
+          />
+
+          {/* =================================================
+              UNKNOWN ROUTE
+          ================================================= */}
+
+          <Route
+            path="*"
+            element={
+              <Navigate
+                to="/"
+                replace
+              />
+            }
           />
 
         </Routes>
@@ -208,20 +344,31 @@ function MainApplication({
 ========================================================= */
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [
+    isSidebarOpen,
+    setIsSidebarOpen,
+  ] = useState(false);
 
   return (
     <EODProvider>
+
       <NotificationProvider>
+
         <EmployeeProvider>
+
           <BrowserRouter>
+
+            {/* =================================================
+                GLOBAL AUTH EXPIRY HANDLER
+            ================================================= */}
+
+            <AuthExpiryHandler />
 
             <Routes>
 
-              {/* ============================================
-                  AUTHENTICATION PAGES
-                  No Sidebar
-              ============================================ */}
+              {/* =================================================
+                  PUBLIC AUTHENTICATION ROUTES
+              ================================================= */}
 
               <Route
                 path="/login"
@@ -233,32 +380,49 @@ function App() {
                 element={<Register />}
               />
 
-              {/* Public Routes */} 
-              <Route path="/login" element={<Login />} /> 
-              <Route path="/register" element={<Register />} /> 
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route
+                path="/forgot-password"
+                element={
+                  <ForgotPassword />
+                }
+              />
 
-                {/* ============================================
+              {/* =================================================
                   PROTECTED APPLICATION
-              ============================================ */}
 
+                  Everything inside this route requires:
+                  - JWT token
+                  - current employee data
+              ================================================= */}
+
+              <Route
+                element={
+                  <ProtectedRoute />
+                }
+              >
                 <Route
-                  path="*"
+                  path="/*"
                   element={
-                    <ProtectedRoute>
-                      <MainApplication
-                        isSidebarOpen={isSidebarOpen}
-                        setIsSidebarOpen={setIsSidebarOpen}
-                      />
-                    </ProtectedRoute>
+                    <MainApplication
+                      isSidebarOpen={
+                        isSidebarOpen
+                      }
+                      setIsSidebarOpen={
+                        setIsSidebarOpen
+                      }
+                    />
                   }
                 />
+              </Route>
 
-              </Routes>
+            </Routes>
 
           </BrowserRouter>
+
         </EmployeeProvider>
+
       </NotificationProvider>
+
     </EODProvider>
   );
 }

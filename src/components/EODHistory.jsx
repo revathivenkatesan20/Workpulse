@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useEOD } from "../context/EODContext";
+import { useEmployee } from "../context/EmployeeContext";
 
 function EODHistory() {
     const { eodReports } = useEOD();
@@ -20,11 +21,7 @@ function EODHistory() {
     // Get currently logged-in employee
     // ---------------------------------------------
 
-    const currentEmployee = JSON.parse(
-        localStorage.getItem(
-            "workpulse_current_employee"
-        ) || "null"
-    );
+    const { currentEmployee } = useEmployee();
 
     const currentEmployeeCode =
         currentEmployee?.employeeCode || "";
@@ -260,7 +257,7 @@ function EODHistory() {
 
                                                 {reportTasks.length}{" "}
                                                 {reportTasks.length ===
-                                                1
+                                                    1
                                                     ? "Task"
                                                     : "Tasks"}
 

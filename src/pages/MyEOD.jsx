@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEOD } from "../context/EODContext";
 import EODHistory from "../components/EODHistory";
-import { useNotifications } from "../context/NotificationContext";
 
 import {
     Plus,
@@ -129,8 +128,6 @@ function MyEOD() {
         updateEODReport,
     } = useEOD();
 
-    const { addNotification } = useNotifications();
-
     // --------------------------------------------------
     // Current employee
     // --------------------------------------------------
@@ -161,16 +158,13 @@ function MyEOD() {
     ]);
 
     const [errors, setErrors] = useState({});
-
     const [submitted, setSubmitted] = useState(false);
-
     const [isEditing, setIsEditing] = useState(false);
-
+    const [editingReportId, setEditingReportId] = useState(null);
     const [submitMessage, setSubmitMessage] = useState("");
-
     const [emailContent, setEmailContent] = useState("");
-
     const [emailCopied, setEmailCopied] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // --------------------------------------------------
     // Working Hours
@@ -211,9 +205,9 @@ function MyEOD() {
             previousTasks.map((task) =>
                 task.id === id
                     ? {
-                          ...task,
-                          [field]: value,
-                      }
+                        ...task,
+                        [field]: value,
+                    }
                     : task
             )
         );
@@ -316,32 +310,72 @@ function MyEOD() {
     const handleEditEOD = () => {
         const existingReport = eodReports.find(
             (report) =>
-                report.employeeCode ===
-                    currentEmployeeCode &&
-                report.date === formData.date
+                String(report.employeeCode || "").toUpperCase() ===
+                String(currentEmployeeCode || "").toUpperCase() &&
+                String(report.date) === String(formData.date)
         );
 
         if (!existingReport) {
+            setSubmitMessage(
+                "Today's EOD report could not be found."
+            );
+
             return;
         }
 
+        if (!existingReport.id) {
+            setSubmitMessage(
+                "Unable to edit this EOD because the report ID is missing."
+            );
+
+            return;
+        }
+
+        // Store the exact database ID
+        setEditingReportId(existingReport.id);
+        setIsEditing(true);
+
         setFormData({
             employeeName:
-                existingReport.employeeName,
+                existingReport.employeeName ||
+                currentEmployee?.name ||
+                "",
+
             department:
-                existingReport.department,
-            date: existingReport.date,
-            timeIn: existingReport.timeIn,
-            timeOut: existingReport.timeOut,
+                existingReport.department ||
+                currentEmployee?.department ||
+                "",
+
+            date:
+                existingReport.date ||
+                getTodayDate(),
+
+            timeIn:
+                existingReport.timeIn ||
+                "09:30",
+
+            timeOut:
+                existingReport.timeOut ||
+                "17:00",
         });
 
         setTasks(
-            existingReport.tasks || [createTask()]
+            Array.isArray(existingReport.tasks) &&
+                existingReport.tasks.length > 0
+                ? existingReport.tasks.map((task) => ({
+                    ...task,
+                    id:
+                        task.id ||
+                        Date.now() +
+                        Math.random(),
+                }))
+                : [createTask()]
         );
 
-        setIsEditing(true);
         setSubmitted(false);
         setSubmitMessage("");
+        setEmailContent("");
+        setEmailCopied(false);
 
         window.scrollTo({
             top: 0,
@@ -381,14 +415,16 @@ function MyEOD() {
             });
         };
 
-        const taskDetails = report.tasks
-            .map(
-                (task, index) =>
-                    `${index + 1}. ${task.description}
+        const taskDetails = Array.isArray(report.tasks)
+            ? report.tasks
+                .map(
+                    (task, index) =>
+                        `${index + 1}. ${task.description}
    Status: ${task.status}
    Remarks: ${task.remarks || "N/A"}`
-            )
-            .join("\n\n");
+                )
+                .join("\n\n")
+            : "No tasks available.";
 
         return `Subject: EOD Report - ${report.employeeName} - ${formattedDate}
 
@@ -427,10 +463,7 @@ ${report.employeeName}`;
                 setEmailCopied(false);
             }, 2000);
         } catch (error) {
-            console.error(
-                "Failed to copy email:",
-                error
-            );
+            setEmailCopied(false);
         }
     };
 
@@ -438,8 +471,12 @@ ${report.employeeName}`;
     // Submit EOD
     // --------------------------------------------------
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (isSubmitting) {
+            return;
+        }
 
         const isValid = validateForm();
 
@@ -451,6 +488,7 @@ ${report.employeeName}`;
             !currentEmployee ||
             !currentEmployeeCode
         ) {
+            setSubmitted(true);
             setSubmitMessage(
                 "Employee information is not available."
             );
@@ -459,71 +497,87 @@ ${report.employeeName}`;
 
         const existingReport = eodReports.find(
             (report) =>
-                report.employeeCode ===
-                    currentEmployeeCode &&
-                report.date === formData.date
+                String(report.employeeCode || "").toUpperCase() ===
+                String(currentEmployeeCode || "").toUpperCase() &&
+                String(report.date || "") ===
+                String(formData.date || "")
         );
 
-        // ----------------------------------------------
-        // UPDATE
-        // ----------------------------------------------
+        setIsSubmitting(true);
+        setSubmitted(false);
+        setSubmitMessage("");
 
-        if (
-            isEditing &&
-            existingReport
-        ) {
+        // --------------------------------------------------
+        // UPDATE EXISTING EOD
+        // --------------------------------------------------
+
+        if (isEditing && editingReportId) {
             const updatedReport = {
-                ...existingReport,
+                id: editingReportId,
                 employeeCode:
                     currentEmployeeCode,
                 employeeName:
-                    currentEmployee.name,
+                    currentEmployee.name ||
+                    formData.employeeName,
                 department:
-                    currentEmployee.department,
+                    currentEmployee.department ||
+                    formData.department,
                 date: formData.date,
                 timeIn: formData.timeIn,
                 timeOut: formData.timeOut,
                 totalWorkingHours:
                     workingHours,
-                tasks,
-                updatedAt:
-                    new Date().toISOString(),
+                tasks: tasks.map((task) => ({
+                    description:
+                        task.description.trim(),
+                    status:
+                        task.status ||
+                        "Completed",
+                    remarks:
+                        task.remarks?.trim() ||
+                        "",
+                })),
             };
 
-            updateEODReport(updatedReport);
+            try {
+                const savedReport =
+                    await updateEODReport(
+                        updatedReport
+                    );
 
-            setEmailContent(
-                generateEmailContent(
-                    updatedReport
-                )
-            );
+                // Generate email after successful update
+                setEmailContent(
+                    generateEmailContent(
+                        savedReport
+                    )
+                );
 
-            setEmailCopied(false);
+                setEmailCopied(false);
 
-            addNotification({
-                employeeCode:
-                    currentEmployeeCode,
-                type: "EOD_UPDATED",
-                title:
-                    "EOD Updated Successfully",
-                message:
-                    `${currentEmployee.name} updated the EOD report for ${formData.date} successfully.`,
-            });
+                setSubmitted(true);
 
-            setSubmitted(true);
+                setSubmitMessage(
+                    "EOD updated successfully!"
+                );
 
-            setSubmitMessage(
-                "EOD updated successfully!"
-            );
+                setIsEditing(false);
+                setEditingReportId(null);
+            } catch (error) {
+                setSubmitted(true);
 
-            setIsEditing(false);
+                setSubmitMessage(
+                    "Failed to update EOD. Please try again."
+                );
+            } finally {
+                setIsSubmitting(false);
+            }
 
             return;
         }
 
-        // ----------------------------------------------
+        // --------------------------------------------------
         // PREVENT DUPLICATE
-        // ----------------------------------------------
+        // --------------------------------------------------
 
         if (existingReport) {
             setSubmitted(true);
@@ -532,54 +586,68 @@ ${report.employeeName}`;
                 "Today's EOD is already submitted."
             );
 
+            setIsSubmitting(false);
+
             return;
         }
 
-        // ----------------------------------------------
-        // CREATE
-        // ----------------------------------------------
+        // --------------------------------------------------
+        // CREATE NEW EOD
+        // --------------------------------------------------
 
         const eodData = {
-            id: Date.now(),
             employeeCode:
                 currentEmployeeCode,
             employeeName:
-                currentEmployee.name,
+                currentEmployee.name ||
+                formData.employeeName,
             department:
-                currentEmployee.department,
+                currentEmployee.department ||
+                formData.department,
             date: formData.date,
             timeIn: formData.timeIn,
             timeOut: formData.timeOut,
             totalWorkingHours:
                 workingHours,
-            tasks,
-            submittedAt:
-                new Date().toISOString(),
+            tasks: tasks.map((task) => ({
+                description:
+                    task.description.trim(),
+                status:
+                    task.status ||
+                    "Completed",
+                remarks:
+                    task.remarks?.trim() ||
+                    "",
+            })),
         };
 
-        addEODReport(eodData);
+        try {
+            const savedReport =
+                await addEODReport(eodData);
 
-        addNotification({
-            employeeCode:
-                currentEmployeeCode,
-            type: "EOD_SUBMITTED",
-            title:
-                "EOD Submitted Successfully",
-            message:
-                `${currentEmployee.name} submitted an EOD report for ${formData.date} successfully.`,
-        });
+            // Generate email after successful EOD save
+            setEmailContent(
+                generateEmailContent(
+                    savedReport
+                )
+            );
 
-        setEmailContent(
-            generateEmailContent(eodData)
-        );
+            setEmailCopied(false);
 
-        setEmailCopied(false);
+            setSubmitted(true);
 
-        setSubmitted(true);
+            setSubmitMessage(
+                "EOD submitted successfully!"
+            );
+        } catch (error) {
+            setSubmitted(true);
 
-        setSubmitMessage(
-            "EOD submitted successfully!"
-        );
+            setSubmitMessage(
+                "Failed to submit EOD. Please try again."
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // --------------------------------------------------
@@ -593,10 +661,10 @@ ${report.employeeName}`;
     const taskProgress =
         tasks.length > 0
             ? Math.round(
-                  (completedTasks /
-                      tasks.length) *
-                      100
-              )
+                (completedTasks /
+                    tasks.length) *
+                100
+            )
             : 0;
 
     // --------------------------------------------------
@@ -726,7 +794,7 @@ ${report.employeeName}`;
                                                 107 -
                                                 (107 *
                                                     taskProgress) /
-                                                    100,
+                                                100,
                                         }}
                                         transition={{
                                             duration: 0.8,
@@ -972,11 +1040,10 @@ ${report.employeeName}`;
                                         name="timeIn"
                                         value={formData.timeIn}
                                         onChange={handleFormChange}
-                                        className={`w-full rounded-xl border ${
-                                            errors.timeIn
-                                                ? "border-[#532B88]"
-                                                : "border-[#C8B1E4]/50"
-                                        } bg-white px-4 py-3 text-sm text-[#2F184B] outline-none transition focus:border-[#532B88] focus:ring-4 focus:ring-[#532B88]/10`}
+                                        className={`w-full rounded-xl border ${errors.timeIn
+                                            ? "border-[#532B88]"
+                                            : "border-[#C8B1E4]/50"
+                                            } bg-white px-4 py-3 text-sm text-[#2F184B] outline-none transition focus:border-[#532B88] focus:ring-4 focus:ring-[#532B88]/10`}
                                     />
 
                                     {errors.timeIn && (
@@ -1003,11 +1070,10 @@ ${report.employeeName}`;
                                         name="timeOut"
                                         value={formData.timeOut}
                                         onChange={handleFormChange}
-                                        className={`w-full rounded-xl border ${
-                                            errors.timeOut
-                                                ? "border-[#532B88]"
-                                                : "border-[#C8B1E4]/50"
-                                        } bg-white px-4 py-3 text-sm text-[#2F184B] outline-none transition focus:border-[#532B88] focus:ring-4 focus:ring-[#532B88]/10`}
+                                        className={`w-full rounded-xl border ${errors.timeOut
+                                            ? "border-[#532B88]"
+                                            : "border-[#C8B1E4]/50"
+                                            } bg-white px-4 py-3 text-sm text-[#2F184B] outline-none transition focus:border-[#532B88] focus:ring-4 focus:ring-[#532B88]/10`}
                                     />
 
                                     {errors.timeOut && (
@@ -1067,8 +1133,8 @@ ${report.employeeName}`;
                                                 </motion.p>
 
                                                 <p className="mt-1 text-xs text-[#806F8F]">
-                                                    Lunch break 1:00 PM –
-                                                    2:00 PM excluded
+                                                    Lunch break 1:00 PM – 2:00 PM
+                                                    excluded
                                                 </p>
 
                                             </div>
@@ -1131,14 +1197,11 @@ ${report.employeeName}`;
                                     onClick={addTask}
                                     className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#F4EFFA] px-4 py-3 text-sm font-semibold text-[#532B88] transition hover:bg-[#532B88] hover:text-white sm:w-auto"
                                 >
-
                                     <Plus
                                         size={18}
                                         className="transition-transform group-hover:rotate-90"
                                     />
-
                                     Add Task
-
                                 </button>
 
                             </div>
@@ -1159,11 +1222,8 @@ ${report.employeeName}`;
                                     }}
                                     className="mb-5 flex items-center gap-2 rounded-xl border border-[#C8B1E4]/50 bg-[#F4EFFA] p-3 text-sm font-medium text-[#532B88]"
                                 >
-
                                     <AlertCircle size={18} />
-
                                     {errors.tasks}
-
                                 </motion.div>
                             )}
 
@@ -1232,9 +1292,7 @@ ${report.employeeName}`;
                                                                 )
                                                             }
                                                             className="rounded-lg p-2 text-[#806F8F] transition hover:bg-[#532B88]/10 hover:text-[#532B88]"
-                                                            aria-label={`Remove task ${
-                                                                index + 1
-                                                            }`}
+                                                            aria-label={`Remove task ${index + 1}`}
                                                         >
                                                             <Trash2
                                                                 size={18}
@@ -1293,7 +1351,6 @@ ${report.employeeName}`;
                                                             }
                                                             className="w-full rounded-xl border border-[#C8B1E4]/50 bg-white px-4 py-3 text-sm text-[#2F184B] outline-none transition focus:border-[#532B88] focus:ring-4 focus:ring-[#532B88]/10"
                                                         >
-
                                                             <option value="Completed">
                                                                 Completed
                                                             </option>
@@ -1309,7 +1366,6 @@ ${report.employeeName}`;
                                                             <option value="Blocked">
                                                                 Blocked
                                                             </option>
-
                                                         </select>
 
                                                     </div>
@@ -1435,7 +1491,10 @@ ${report.employeeName}`;
                                             onClick={
                                                 handleEditEOD
                                             }
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-[#C8B1E4]/60 bg-white px-5 py-3 text-sm font-semibold text-[#532B88] transition hover:bg-[#F4EFFA]"
+                                            disabled={
+                                                isSubmitting
+                                            }
+                                            className="flex items-center justify-center gap-2 rounded-xl border border-[#C8B1E4]/60 bg-white px-5 py-3 text-sm font-semibold text-[#532B88] transition hover:bg-[#F4EFFA] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
 
                                             <Pencil size={17} />
@@ -1447,17 +1506,40 @@ ${report.employeeName}`;
 
                                 <button
                                     type="submit"
-                                    className="group flex items-center justify-center gap-2 rounded-xl bg-[#532B88] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#532B88]/20 transition hover:-translate-y-0.5 hover:bg-[#2F184B] active:translate-y-0"
+                                    disabled={isSubmitting}
+                                    className="group flex items-center justify-center gap-2 rounded-xl bg-[#532B88] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#532B88]/20 transition hover:-translate-y-0.5 hover:bg-[#2F184B] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                                 >
 
-                                    <Send
-                                        size={18}
-                                        className="transition-transform group-hover:translate-x-0.5"
-                                    />
+                                    {isSubmitting ? (
+                                        <>
+                                            <motion.div
+                                                animate={{
+                                                    rotate: 360,
+                                                }}
+                                                transition={{
+                                                    duration: 0.8,
+                                                    repeat: Infinity,
+                                                    ease: "linear",
+                                                }}
+                                                className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white"
+                                            />
 
-                                    {isEditing
-                                        ? "Update EOD"
-                                        : "Submit EOD"}
+                                            {isEditing
+                                                ? "Updating..."
+                                                : "Submitting..."}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send
+                                                size={18}
+                                                className="transition-transform group-hover:translate-x-0.5"
+                                            />
+
+                                            {isEditing
+                                                ? "Update EOD"
+                                                : "Submit EOD"}
+                                        </>
+                                    )}
 
                                 </button>
 
