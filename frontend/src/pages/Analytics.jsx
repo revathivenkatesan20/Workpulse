@@ -16,6 +16,7 @@ import {
     Sparkles,
     AlertCircle,
     RefreshCw,
+    Search,
 } from "lucide-react";
 
 import {
@@ -118,8 +119,8 @@ const convertHoursToMinutes = (hoursString) => {
 const getReportMinutes = (report) => {
     return convertHoursToMinutes(
         report?.totalWorkingHours ||
-            report?.workingHours ||
-            ""
+        report?.workingHours ||
+        ""
     );
 };
 
@@ -204,6 +205,8 @@ function Analytics() {
 
     const [selectedPeriod, setSelectedPeriod] =
         useState("week");
+
+    const [employeeSearch, setEmployeeSearch] = useState("");
 
     /* --------------------------------
        INITIAL LOADING
@@ -388,7 +391,7 @@ function Analytics() {
         tasks.forEach((task) => {
             if (
                 taskStatusCounts[
-                    task?.status
+                task?.status
                 ] !== undefined
             ) {
                 taskStatusCounts[
@@ -416,41 +419,60 @@ function Analytics() {
     const employeeHoursMap = {};
 
     filteredReports.forEach((report) => {
+        const employeeCode =
+            report?.employeeCode || "UNKNOWN";
+
         const employeeName =
             report?.employeeName ||
-            report?.employeeCode ||
-            "Unknown Employee";
+            employeeCode;
 
-        if (
-            !employeeHoursMap[
-                employeeName
-            ]
-        ) {
-            employeeHoursMap[
-                employeeName
-            ] = 0;
+        if (!employeeHoursMap[employeeCode]) {
+            employeeHoursMap[employeeCode] = {
+                code: employeeCode,
+                name: employeeName,
+                minutes: 0,
+            };
         }
 
-        employeeHoursMap[
-            employeeName
-        ] += getReportMinutes(report);
+        employeeHoursMap[employeeCode].minutes +=
+            getReportMinutes(report);
     });
 
-    const employeeHoursData = Object.entries(
+    const employeeHoursData = Object.values(
         employeeHoursMap
     )
-        .map(([name, minutes]) => ({
-            name,
+        .map((employee) => ({
+            code: employee.code,
+            name: employee.name,
             hours: Number(
-                (
-                    minutes / 60
-                ).toFixed(2)
+                (employee.minutes / 60).toFixed(2)
             ),
         }))
-        .sort(
-            (a, b) =>
-                b.hours - a.hours
-        );
+        .sort((a, b) => b.hours - a.hours);
+
+    const searchedEmployeeHours = employeeHoursData.filter(
+        (employee) => {
+            const search = employeeSearch
+                .trim()
+                .toLowerCase();
+
+            if (!search) return true;
+
+            return (
+                employee.name
+                    .toLowerCase()
+                    .includes(search) ||
+                employee.code
+                    .toLowerCase()
+                    .includes(search)
+            );
+        }
+    );
+
+    const employeeChartData =
+        employeeSearch.trim()
+            ? searchedEmployeeHours
+            : employeeHoursData.slice(0, 10);
 
     /* --------------------------------
        SUMMARY
@@ -479,32 +501,32 @@ function Analytics() {
     const averageMinutes =
         filteredReports.length > 0
             ? Math.round(
-                  totalMinutes /
-                      filteredReports.length
-              )
+                totalMinutes /
+                filteredReports.length
+            )
             : 0;
 
     const periodLabel =
         selectedPeriod === "today"
             ? "Today's"
             : selectedPeriod === "month"
-              ? "This month's"
-              : "This week's";
+                ? "This month's"
+                : "This week's";
 
     const selectedPeriodLabel =
         selectedPeriod === "today"
             ? "Today"
             : selectedPeriod === "month"
-              ? "This Month"
-              : "This Week";
+                ? "This Month"
+                : "This Week";
 
     const completionPercentage =
         totalTasks > 0
             ? Math.round(
-                  (completedTasks /
-                      totalTasks) *
-                      100
-              )
+                (completedTasks /
+                    totalTasks) *
+                100
+            )
             : 0;
 
     /* --------------------------------
@@ -550,15 +572,15 @@ function Analytics() {
         selectedPeriod === "today"
             ? "Today's Working Overview"
             : selectedPeriod === "month"
-              ? "Monthly Working Overview"
-              : "Weekly Working Overview";
+                ? "Monthly Working Overview"
+                : "Weekly Working Overview";
 
     const workingChartDescription =
         selectedPeriod === "today"
             ? "Working hours recorded today across all employees."
             : selectedPeriod === "month"
-              ? "Daily working hours recorded throughout this month."
-              : "Working hours recorded across the current week.";
+                ? "Daily working hours recorded throughout this month."
+                : "Working hours recorded across the current week.";
 
     /* --------------------------------
        RETRY
@@ -719,12 +741,11 @@ function Analytics() {
                                                     period.value
                                                 )
                                             }
-                                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ${
-                                                selectedPeriod ===
+                                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-300 ${selectedPeriod ===
                                                 period.value
-                                                    ? "bg-[#532B88] text-white shadow-lg shadow-[#532B88]/20"
-                                                    : "text-[#69577A] hover:bg-[#F4EFFA] hover:text-[#532B88]"
-                                            }`}
+                                                ? "bg-[#532B88] text-white shadow-lg shadow-[#532B88]/20"
+                                                : "text-[#69577A] hover:bg-[#F4EFFA] hover:text-[#532B88]"
+                                                }`}
                                         >
                                             {
                                                 period.label
@@ -767,17 +788,17 @@ function Analytics() {
                                     </p>
 
                                     <p className="mt-1 text-xs leading-5 text-red-600">
-                                         Unable to load the latest EOD analytics data.
+                                        Unable to load the latest EOD analytics data.
                                     </p>
 
                                     {eodReports.length >
                                         0 && (
-                                        <p className="mt-1 text-xs text-red-500">
-                                            Showing the
-                                            last available
-                                            analytics data.
-                                        </p>
-                                    )}
+                                            <p className="mt-1 text-xs text-red-500">
+                                                Showing the
+                                                last available
+                                                analytics data.
+                                            </p>
+                                        )}
                                 </div>
                             </div>
 
@@ -893,7 +914,7 @@ function Analytics() {
                                         delay:
                                             0.2 +
                                             index *
-                                                0.08,
+                                            0.08,
                                     }}
                                     whileHover={{
                                         y: -5,
@@ -985,18 +1006,18 @@ function Analytics() {
 
                             <div className="hidden rounded-xl bg-[#F4EFFA] px-3 py-2 text-xs font-bold text-[#532B88] sm:block">
                                 {selectedPeriod ===
-                                "today"
+                                    "today"
                                     ? "1 Day"
                                     : selectedPeriod ===
                                         "month"
-                                      ? `${periodDates.length} Days`
-                                      : "7 Days"}
+                                        ? `${periodDates.length} Days`
+                                        : "7 Days"}
                             </div>
                         </div>
 
                         <div className="h-[300px] w-full">
                             {periodHoursData.length >
-                            0 ? (
+                                0 ? (
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
@@ -1037,7 +1058,7 @@ function Analytics() {
                                             }
                                             interval={
                                                 selectedPeriod ===
-                                                "month"
+                                                    "month"
                                                     ? "preserveStartEnd"
                                                     : 0
                                             }
@@ -1077,7 +1098,7 @@ function Analytics() {
                                             ]}
                                             maxBarSize={
                                                 selectedPeriod ===
-                                                "month"
+                                                    "month"
                                                     ? 22
                                                     : 42
                                             }
@@ -1146,7 +1167,7 @@ function Analytics() {
 
                         <div className="h-[300px] w-full">
                             {taskStatusData.length >
-                            0 ? (
+                                0 ? (
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
@@ -1176,8 +1197,8 @@ function Analytics() {
                                                         key={`cell-${index}`}
                                                         fill={
                                                             chartColors[
-                                                                index %
-                                                                    chartColors.length
+                                                            index %
+                                                            chartColors.length
                                                             ]
                                                         }
                                                         stroke="#F4EFFA"
@@ -1272,38 +1293,57 @@ function Analytics() {
                                 </p>
                             </div>
 
-                            {employeeHoursData.length >
-                                0 && (
-                                <div className="flex items-center gap-2 self-start rounded-xl bg-[#F4EFFA] px-3 py-2">
-                                    <TrendingUp
-                                        size={15}
-                                        className="text-[#532B88]"
+                            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+                                <div className="relative w-full sm:w-64">
+                                    <Search
+                                        size={16}
+                                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9B72CF]"
                                     />
-
-                                    <span className="text-xs font-bold text-[#532B88]">
-                                        {
-                                            employeeHoursData.length
-                                        }{" "}
-                                        {employeeHoursData.length ===
-                                        1
-                                            ? "employee"
-                                            : "employees"}
-                                    </span>
+                                    <input
+                                        type="text"
+                                        value={employeeSearch}
+                                        onChange={(event) =>
+                                            setEmployeeSearch(event.target.value)
+                                        }
+                                        placeholder="Search name or employee code"
+                                        className="w-full rounded-xl border border-[#C8B1E4]/60 bg-white/80 py-2.5 pl-9 pr-3 text-sm text-[#2F184B] outline-none transition-all placeholder:text-[#9B72CF]/70 focus:border-[#9B72CF] focus:ring-2 focus:ring-[#9B72CF]/20"
+                                    />
                                 </div>
-                            )}
+
+                                {employeeHoursData.length > 0 && (
+                                    <div className="flex items-center gap-2 self-start rounded-xl bg-[#F4EFFA] px-3 py-2">
+                                        <TrendingUp
+                                            size={15}
+                                            className="text-[#532B88]"
+                                        />
+
+                                        <span className="whitespace-nowrap text-xs font-bold text-[#532B88]">
+                                            {employeeHoursData.length}{" "}
+                                            {employeeHoursData.length === 1
+                                                ? "employee"
+                                                : "employees"}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
+                        <p className="mb-3 text-xs font-semibold text-[#9B72CF]">
+                            {employeeSearch.trim()
+                                ? `Search results: ${employeeChartData.length} employee${employeeChartData.length === 1 ? "" : "s"
+                                }`
+                                : `Top ${Math.min(10, employeeHoursData.length)} employees by working hours`}
+                        </p>
+
                         {employeeHoursData.length >
-                        0 ? (
+                            0 ? (
                             <div className="h-[350px] w-full">
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
                                 >
                                     <BarChart
-                                        data={
-                                            employeeHoursData
-                                        }
+                                        data={employeeChartData}
                                         layout="vertical"
                                         margin={{
                                             left: 10,
@@ -1440,7 +1480,7 @@ function Analytics() {
                                     }{" "}
                                     EOD{" "}
                                     {filteredReports.length ===
-                                    1
+                                        1
                                         ? "report"
                                         : "reports"}{" "}
                                     recorded with{" "}
@@ -1449,7 +1489,7 @@ function Analytics() {
                                     }{" "}
                                     completed{" "}
                                     {completedTasks ===
-                                    1
+                                        1
                                         ? "task"
                                         : "tasks"}{" "}
                                     during{" "}

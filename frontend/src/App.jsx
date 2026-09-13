@@ -8,7 +8,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { Menu, Bell } from "lucide-react";
+import {
+  Menu,
+  Bell,
+  Activity,
+} from "lucide-react";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthExpiryHandler from "./components/AuthExpiryHandler";
@@ -53,15 +57,10 @@ function getCurrentEmployee() {
 
 /* =========================================================
    ADMIN GUARD
-   Only ADMIN can access admin pages.
 ========================================================= */
 
 function AdminRoute({ children }) {
   const currentEmployee = getCurrentEmployee();
-
-  /* -------------------------------------------------------
-     NOT LOGGED IN
-  ------------------------------------------------------- */
 
   if (!currentEmployee) {
     return (
@@ -71,10 +70,6 @@ function AdminRoute({ children }) {
       />
     );
   }
-
-  /* -------------------------------------------------------
-     LOGGED IN BUT NOT ADMIN
-  ------------------------------------------------------- */
 
   if (
     String(
@@ -93,7 +88,7 @@ function AdminRoute({ children }) {
 }
 
 /* =========================================================
-   MOBILE HEADER
+   MOBILE / TABLET HEADER
 ========================================================= */
 
 function MobileHeader({
@@ -119,11 +114,15 @@ function MobileHeader({
       className="
         sticky top-0 z-30
         flex h-16 items-center justify-between
-        border-b border-slate-200
-        bg-white px-4 shadow-sm
+        border-b border-[#C8B1E4]/40
+        bg-[#F4EFFA]/95
+        px-4
+        shadow-sm
+        backdrop-blur-xl
         lg:hidden
       "
     >
+
       {/* =================================================
           MENU BUTTON
       ================================================= */}
@@ -134,10 +133,12 @@ function MobileHeader({
           setIsSidebarOpen(true)
         }
         className="
-          rounded-lg p-2
-          text-slate-600
+          rounded-xl
+          p-2
+          text-[#69577A]
           transition
-          hover:bg-slate-100
+          hover:bg-white/75
+          hover:text-[#532B88]
         "
         aria-label="Open sidebar"
       >
@@ -146,18 +147,47 @@ function MobileHeader({
 
       {/* =================================================
           BRAND
+          SAME LOGO AS SIDEBAR
       ================================================= */}
 
-      <div className="flex items-center gap-2">
-        <img
-          src="/src/assets/workpulse-logo.png"
-          alt="WorkPulse"
-          className="h-9 w-9 object-contain"
-        />
+      <div className="flex items-center gap-2.5">
 
-        <h1 className="text-lg font-bold text-slate-900">
+        {/* WorkPulse Icon */}
+
+        <div
+          className="
+            flex
+            h-9
+            w-9
+            shrink-0
+            items-center
+            justify-center
+            rounded-xl
+            bg-[#532B88]
+            text-white
+            shadow-md
+            shadow-[#532B88]/20
+          "
+        >
+          <Activity
+            size={19}
+            strokeWidth={2}
+          />
+        </div>
+
+        {/* Brand Name */}
+
+        <h1
+          className="
+            text-lg
+            font-bold
+            tracking-tight
+            text-[#2F184B]
+          "
+        >
           WorkPulse
         </h1>
+
       </div>
 
       {/* =================================================
@@ -170,10 +200,13 @@ function MobileHeader({
           navigate("/notifications")
         }
         className="
-          relative rounded-lg p-2
-          text-slate-600
+          relative
+          rounded-xl
+          p-2
+          text-[#69577A]
           transition
-          hover:bg-slate-100
+          hover:bg-white/75
+          hover:text-[#532B88]
         "
         aria-label="Notifications"
       >
@@ -182,9 +215,14 @@ function MobileHeader({
         {unreadCount > 0 && (
           <span
             className="
-              absolute -right-1 -top-1
-              flex min-h-[18px] min-w-[18px]
-              items-center justify-center
+              absolute
+              -right-1
+              -top-1
+              flex
+              min-h-[18px]
+              min-w-[18px]
+              items-center
+              justify-center
               rounded-full
               bg-[#9B72CF]
               px-1
@@ -199,13 +237,13 @@ function MobileHeader({
           </span>
         )}
       </button>
+
     </header>
   );
 }
 
 /* =========================================================
    MAIN APPLICATION
-   This component contains all protected pages.
 ========================================================= */
 
 function MainApplication({
@@ -246,28 +284,21 @@ function MainApplication({
 
         <Routes>
 
-          {/* =================================================
-              DASHBOARD
-          ================================================= */}
+          {/* DASHBOARD */}
 
           <Route
             path="/"
             element={<Dashboard />}
           />
 
-          {/* =================================================
-              MY EOD
-          ================================================= */}
+          {/* MY EOD */}
 
           <Route
             path="/eod"
             element={<MyEOD />}
           />
 
-          {/* =================================================
-              ADMIN EOD
-              ADMIN ONLY
-          ================================================= */}
+          {/* ADMIN EOD */}
 
           <Route
             path="/admin-eod"
@@ -278,28 +309,21 @@ function MainApplication({
             }
           />
 
-          {/* =================================================
-              ANALYTICS
-          ================================================= */}
+          {/* ANALYTICS */}
 
           <Route
             path="/analytics"
             element={<Analytics />}
           />
 
-          {/* =================================================
-              NOTIFICATIONS
-          ================================================= */}
+          {/* NOTIFICATIONS */}
 
           <Route
             path="/notifications"
             element={<Notifications />}
           />
 
-          {/* =================================================
-              EMPLOYEES
-              ADMIN ONLY
-          ================================================= */}
+          {/* EMPLOYEES */}
 
           <Route
             path="/employees"
@@ -310,18 +334,14 @@ function MainApplication({
             }
           />
 
-          {/* =================================================
-              SETTINGS
-          ================================================= */}
+          {/* SETTINGS */}
 
           <Route
             path="/settings"
             element={<Settings />}
           />
 
-          {/* =================================================
-              UNKNOWN ROUTE
-          ================================================= */}
+          {/* UNKNOWN ROUTE */}
 
           <Route
             path="*"
@@ -389,10 +409,6 @@ function App() {
 
               {/* =================================================
                   PROTECTED APPLICATION
-
-                  Everything inside this route requires:
-                  - JWT token
-                  - current employee data
               ================================================= */}
 
               <Route
